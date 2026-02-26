@@ -1054,9 +1054,11 @@ function playPerc(m, vel = 0.9) {
 }
 
 /* ===== Controles ===== */
-startBtn.onclick = async ()=>{
-  if(!midi) return;
-  await Tone.start();
+
+startBtn.onclick = async () => {
+    if (Tone.context.state !== "running") {
+        console.log("Intentando desbloquear audio en iOS...");
+        await Tone.start();
 
   if(!isRunning){
     isRunning = true; isPaused = false;
