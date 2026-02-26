@@ -492,7 +492,6 @@ async function unlockIOSAudio(){
     if (Tone.context.state !== 'running'){
       await Tone.context.resume();
     }
-    // warm-up: very short, very low beep so the whole chain is initialized
     const ping = new Tone.Oscillator(440, "sine").connect(masterLimiter);
     ping.volume.value = -60;
     ping.start();
@@ -500,20 +499,17 @@ async function unlockIOSAudio(){
     iosAudioUnlocked = true;
   }catch(e){ console.warn('No se pudo desbloquear audio iOS:', e); }
 }
-// Try to unlock on first real user gesture (no extra UI)
 ["touchstart","touchend","pointerdown","mousedown","keydown"].forEach(ev => {
   window.addEventListener(ev, async () => {
-    if (isIOS() && !iosAudioUnlocked){
-      await unlockIOSAudio();
-    }
+    if (isIOS() && !iosAudioUnlocked){ await unlockIOSAudio(); }
   }, { passive:true });
 });
-// Resume when tab becomes visible again
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible' && Tone.context.state !== 'running'){
     try{ await Tone.context.resume(); }catch{}
   }
 });
+try { Tone.Destination.mute = false; Tone.Destination.volume.value = 0; } catch {}
 
 
 /* ===== GameView ===== */
@@ -962,6 +958,11 @@ const startBtn = $("#startBtn");
 const stopBtn = $("#stopBtn");
 const percussionBtn = $("#percussionBtn");
 const tempoSlider = $("#tempoSlider");
+
+// Extra: also unlock on existing controls interactions (no new UI)
+midiBtn.addEventListener('click', async () => { if (isIOS() && !iosAudioUnlocked) await unlockIOSAudio(); });
+tempoSlider.addEventListener('pointerdown', async () => { if (isIOS() && !iosAudioUnlocked) await unlockIOSAudio(); });
+
 const tempoLabel = $("#tempoLabel");
 const twoPlayersBtn = $("#twoPlayersBtn");
 const player2Pane = $("#player2Pane");
@@ -1090,18 +1091,18 @@ function playPerc(m, vel = 0.9) {
 }
 
 /* ===== Controles ===== */
-startBtn.onclick = async () => {
-  if (!midi) return;
-
-  // Ensure audio is unlocked/resumed inside this user gesture
+startBtn.onclick = async ()=>{
+  // Ensure audio is unlocked/resumed inside this user gesture (run before any early return)
   if (isIOS() && !iosAudioUnlocked) {
     await unlockIOSAudio();
   } else {
     try { await Tone.start(); } catch {}
-    if (Tone.context.state !== 'running') {
-      try { await Tone.context.resume(); } catch {}
-    }
+    if (Tone.context.state !== 'running') { try { await Tone.context.resume(); } catch {} }
   }
+
+
+  if(!midi) return;
+  await Tone.start();
 
   if(!isRunning){
     isRunning = true; isPaused = false;
