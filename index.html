@@ -480,6 +480,42 @@ function formatNoteLabel(m){
 /* ======== MASTER BUS con limitador ======== */
 const masterLimiter = new Tone.Limiter(-1).toDestination();
 
+/* ===== iOS/Safari audio unlock (no new UI) ===== */
+function isIOS(){
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+let iosAudioUnlocked = false;
+async function unlockIOSAudio(){
+  try{
+    await Tone.start();
+    if (Tone.context.state !== 'running'){
+      await Tone.context.resume();
+    }
+    // warm-up: very short, very low beep so the whole chain is initialized
+    const ping = new Tone.Oscillator(440, "sine").connect(masterLimiter);
+    ping.volume.value = -60;
+    ping.start();
+    ping.stop("+0.05");
+    iosAudioUnlocked = true;
+  }catch(e){ console.warn('No se pudo desbloquear audio iOS:', e); }
+}
+// Try to unlock on first real user gesture (no extra UI)
+["touchstart","touchend","pointerdown","mousedown","keydown"].forEach(ev => {
+  window.addEventListener(ev, async () => {
+    if (isIOS() && !iosAudioUnlocked){
+      await unlockIOSAudio();
+    }
+  }, { passive:true });
+});
+// Resume when tab becomes visible again
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && Tone.context.state !== 'running'){
+    try{ await Tone.context.resume(); }catch{}
+  }
+});
+
+
 /* ===== GameView ===== */
 class GameView {
   constructor({ paneId, gameId, barId, trackSelId, soundBtnId, fluteBtnId, sidePlacement, titleEl }){
@@ -1054,9 +1090,18 @@ function playPerc(m, vel = 0.9) {
 }
 
 /* ===== Controles ===== */
-startBtn.onclick = async ()=>{
-  if(!midi) return;
-  await Tone.start();
+startBtn.onclick = async () => {
+  if (!midi) return;
+
+  // Ensure audio is unlocked/resumed inside this user gesture
+  if (isIOS() && !iosAudioUnlocked) {
+    await unlockIOSAudio();
+  } else {
+    try { await Tone.start(); } catch {}
+    if (Tone.context.state !== 'running') {
+      try { await Tone.context.resume(); } catch {}
+    }
+  }
 
   if(!isRunning){
     isRunning = true; isPaused = false;
