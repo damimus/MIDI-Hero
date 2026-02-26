@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>MIDI Hero 2P 🎹🎮 — Compacta</title>
+<style>
+:root{
+  /* creat per J.Damià Lloren Jordà amb llicència CC-BY-NC-SA */
+  --game-w: 880px; /* Ancho de cada zona de juego */
+  --game-h: 600px; /* Alto de cada zona de juego */
+  --gap: 40px;     /* Separación entre elementos en la fila */
+  --pad-x: 20px;   /* Padding horizontal común */
+
+  /* Separaciones */
+  --stack-gap: 12px; /* gap vertical entre h2, controles y tempo */
+  --btn-gap: 12px;   /* gap entre botones fila 2 */
+  --tempo-gap: 16px; /* gap tempo label/slider */
+
+  /* Colores */
+  --blue-btn: #0088ff;
+
+  /* —— Layout flauta —— */
+  --fz-top-gap: 10px;     /* pequeño margen superior antes del 1.º círculo */
+  --fz-gap: 25px;         /* gap base entre elementos (para equidistancias) */
+  --fz-gap-large: 40px;   /* “un poquito más” entre dot4 y dot5 (división manos) */
+}
+* { box-sizing: border-box; }
+body{
+  margin:0; background:#000; color:white;
+  overflow:hidden; display:flex; justify-content:center; align-items:center;
+  font-family:Arial, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+/* Contenedor escalable */
+#app{
+  position:absolute; transform-origin: top left;
+  width: 1200px; /* recalculado por JS */
+}
+
+/* ===== CABECERA Y BLOQUE SUPERIOR ===== */
+#topStack{
+  display:flex; flex-direction:column; align-items:center;
+  gap: var(--stack-gap);
+  width: var(--content-w);
+  margin: 8px auto 10px;
+  padding: 0 var(--pad-x);
+}
+h2{
+  margin: 6px 0 6px;
+  font-weight: 800;
+  letter-spacing: .4px;
+  text-align:center;
+  white-space: nowrap;
+}
+#controlsRow{
+  display:flex; align-items:center; justify-content:center;
+  gap: var(--btn-gap); flex-wrap: nowrap;
+  width:100%; min-width: 0;
+}
+#controlsRow > *{ flex: 0 1 auto; min-width: 0; }
+.filename{
+  max-width:260px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:inline-block;
+  opacity:.85; font-size:14px;
+}
+#tempoRow{
+  display:flex; gap: var(--tempo-gap);
+  justify-content:center; align-items:center;
+  width:100%;
+  margin-top: 12px;
+  margin-bottom: 18px;
+}
+.tempoText{
+  font-weight:bold; font-size:16px; letter-spacing:1px; color:white;
+  text-shadow:0 0 6px rgba(0,170,255,0.8);
+  white-space: nowrap;
+}
+#tempoSlider{
+  width:420px; height:14px; -webkit-appearance:none;
+  background:linear-gradient(to right,#111,#222); border-radius:10px; outline:none;
+  border:2px solid #444; box-shadow:0 0 10px rgba(255,255,255,0.2); transition:0.2s;
+}
+#tempoSlider:hover{ box-shadow:0 0 15px rgba(0,170,255,0.6); }
+#tempoSlider::-webkit-slider-runnable-track{ height:14px; background:linear-gradient(to right,#0d0d0d,#333); border-radius:10px; }
+#tempoSlider::-webkit-slider-thumb{
+  -webkit-appearance:none; height:28px; width:28px; border-radius:50%;
+  background:radial-gradient(circle at 30% 30%, #00aaff, #0044aa); border:3px solid #ffffff; cursor:pointer; margin-top:-7px;
+  box-shadow:0 0 10px #00aaff, 0 0 20px rgba(0,170,255,0.8); transition:0.15s;
+}
+#tempoSlider::-moz-range-thumb{
+  height:28px; width:28px; border-radius:50%;
+  background:radial-gradient(circle at 30% 30%, #00aaff, #0044aa); border:3px solid white; cursor:pointer;
+  box-shadow:0 0 10px #00aaff, 0 0 20px rgba(0,170,255,0.8);
+}
+
+/* ===== BOTONES ===== */
+.ghButton{
+  padding:12px 22px; font-size:15px; font-weight:bold; border-radius:24px; border:2px solid #444;
+  cursor:pointer; transition:all 0.2s ease;
+  background:linear-gradient(to bottom,#222,#000); color:white; text-transform:uppercase; letter-spacing:1px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative; /* contenedor del fader incrustado */
+  overflow: visible;
+}
+.ghButton:hover{ transform:scale(1.05); box-shadow:0 0 12px rgba(255,255,255,0.6); }
+.ghButton.on{ border-color:#00ff99; box-shadow:0 0 15px rgba(0,255,150,0.8); }
+.ghButton.off{ border-color:#ff4444; box-shadow:0 0 15px rgba(255,0,0,0.8); }
+.ghButton:focus-visible{ outline:3px solid #00aaff; outline-offset:2px; }
+.btnLabel{ pointer-events:none; }
+.playersBtn{
+  border-color: var(--blue-btn) !important;
+  box-shadow: 0 0 15px rgba(0,136,255,0.65) !important;
+}
+.soundToggle, .fluteToggle{
+  padding:10px 16px;
+  font-size:14px;
+  max-width: 180px;
+}
+
+/* ===== FADER incrustado (ultra-fino) ===== */
+.btnFaderContainer{
+  position:absolute;
+  left:8px; right:8px; bottom:6px;
+  height:20%;
+  display:none; align-items:center;
+  pointer-events:none; z-index:5;
+}
+.ghButton.on .btnFaderContainer{ display:flex; }
+.ghButton.on{ padding-bottom:20px; }
+.btnFader{
+  width:100%; height:4px;
+  -webkit-appearance:none; appearance:none;
+  background: linear-gradient(to right,#111,#333);
+  border:2px solid #444; border-radius:10px; outline:none;
+  box-shadow:0 0 6px rgba(255,255,255,0.25);
+  pointer-events:auto;
+}
+.btnFader::-webkit-slider-runnable-track { height:4px; border-radius:10px; }
+.btnFader::-moz-range-track { height:4px; border-radius:10px; }
+.btnFader::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  height:16px; width:16px;
+  border-radius:50%;
+  background: radial-gradient(circle at 30% 30%, #00aaff, #0044aa);
+  border:2px solid #fff;
+  margin-top:-7px;
+  cursor:pointer;
+  box-shadow:0 0 8px #00aaff, 0 0 14px rgba(0,170,255,0.7);
+}
+.btnFader::-moz-range-thumb{
+  height:16px; width:16px;
+  border-radius:50%;
+  background: radial-gradient(circle at 30% 30%, #00aaff, #0044aa);
+  border:2px solid #fff; cursor:pointer;
+  box-shadow:0 0 8px #00aaff, 0 0 14px rgba(0,170,255,0.7);
+}
+
+/* ===== LAYOUT ZONAS DE JUEGO ===== */
+#gameLayout{
+  display:flex; justify-content:center; align-items:flex-start;
+  gap: var(--gap);
+  width: var(--content-w);
+  margin: 14px auto 0;
+  padding: 0 var(--pad-x);
+}
+.playerPane{ width:var(--game-w); }
+
+/* ===== ZONAS LATERALES DE FLAUTA ===== */
+.fluteSideZone{
+  width:60px;
+  height:var(--game-h); /* 600px */
+  /* Fondo: imagen base64 estirada al tamaño exacto (60×600), centrada y sin repetición */
+  background: url("data:image/webp;base64,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") center/100% 100% no-repeat transparent;
+
+  /* layout interior */
+  flex: 0 0 auto;
+  display:flex; /* columna con elementos */
+  flex-direction:column;
+  align-items:center; /* centrado horizontal */
+  justify-content:flex-start; /* de arriba a abajo */
+  padding: var(--fz-top-gap) 6px 10px;
+  gap: 0; /* espaciado controlado elemento a elemento */
+}
+
+/* Círculos: estilos base */
+.fluteDot{
+  border-radius:50%;
+  background: radial-gradient(circle at 30% 30%, #ddd, #999);
+  box-shadow: 0 0 6px rgba(0,0,0,0.35), inset 0 0 6px rgba(255,255,255,0.35);
+  flex:0 0 auto;
+  margin-left: auto;
+  margin-right: auto;
+  position: relative;
+  z-index: 1; /* por encima del fondo */
+}
+
+/* Tamaños NUEVOS */
+.dot1 { width:30px; height:30px; }
+.dot2 { width:30px; height:30px; }
+.dot3 { width:30px; height:30px; }
+.dot4 { width:30px; height:30px; }
+.dot5 { width:30px; height:30px; }
+.dot6 { width:20px; height:20px; }
+.dot7 { width:30px; height:30px; }
+.dot8 { width:25px; height:25px; transform: translateX(-6px); } /* pequeño desplazamiento como antes */
+
+/* Texto de la nota — 10px más abajo del primer círculo y 10px antes del 2º */
+.fluteLabel{
+  margin-top:70px !important;  /* Dot1 → Texto = 10px */
+  margin-bottom:40px !important; /* Texto → Dot2 = 10px (misma distancia) */
+  color:#070707;
+  font-size:16px;
+  font-weight:900;
+  text-transform:none; /* el formato final lo aplica JS */
+  text-align:center;
+  line-height:1.15;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+  user-select:none;
+  z-index: 1; /* por encima del fondo */
+}
+
+/* Distancias entre elementos */
+
+/* Dot1 → Texto → Dot2 */
+.dot1 { margin-top: 0; }
+.dot2 { margin-top:30px; }
+
+/* 2–3–4 equidistantes */
+.dot3,
+.dot4 { margin-top: var(--fz-gap); } /* 12px */
+
+/* Separación entre manos (4 → 5) */
+.dot5 { margin-top: var(--fz-gap-large); } /* 20px */
+
+/* 5–6–7–8 equidistantes */
+.dot6,
+.dot7,
+.dot8 { margin-top: var(--fz-gap); } /* 12px */
+
+/* Título de instrumento por panel */
+.paneTitle{
+  width: var(--game-w);
+  display:flex; justify-content:flex-start; align-items:center;
+  margin: 0 auto 6px;
+  padding: 0 4px;
+}
+.paneTitle .title{
+  font-size:16px; letter-spacing:1px; text-transform:uppercase; font-weight:700;
+  opacity:.95; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
+}
+
+.game{
+  position:relative; width:var(--game-w); height:var(--game-h);
+  margin:auto; background:black; overflow:hidden;
+  border:1px solid rgba(255,255,255,0.08); border-radius:6px;
+}
+.laneColorBar{
+  position:absolute; top:0; left:0; width:100%; height:30px; display:flex; z-index:5;
+}
+.laneColorBox{
+  position:relative; flex:1; display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:bold; border-right:1px solid rgba(255,255,255,0.2);
+  color:white; user-select:none;
+}
+.laneColorBox input{ position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+.resetBox{ background:#222 !important; cursor:pointer; }
+.upperZone{ position:absolute; top:30px; left:0; width:100%; bottom:100px; background:#555555; z-index:0; }
+.hitline{
+  position:absolute; bottom:100px; width:100%; height:12px;
+  background:linear-gradient(to bottom, rgba(255,255,255,0.2), white, rgba(255,255,255,0.2));
+  box-shadow: 0 0 15px rgba(255,255,255,0.9), 0 0 30px rgba(0,200,255,0.6);
+  z-index:3;
+}
+.note{ position:absolute; width:60px; border-radius:30px; overflow:hidden; z-index:2; }
+.noteHead{
+  position:absolute; bottom:0; width:100%; height:60px; border-radius:30px;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:600; font-size:16px; letter-spacing:0.5px;
+  color:#fff; text-shadow:0 0 4px rgba(0,0,0,0.4);
+}
+.cosmicEffect{
+  box-shadow: 0 0 8px rgba(255,255,255,0.7), 0 0 18px rgba(0,200,255,0.7), 0 0 35px rgba(180,0,255,0.8);
+  animation: cosmicPulse 0.5s infinite alternate;
+}
+@keyframes cosmicPulse{ from{ filter:brightness(1); } to{ filter:brightness(1.8); } }
+.particle{
+  position:absolute; width:5px; height:5px; border-radius:50%; pointer-events:none;
+  animation: particleFade 0.8s linear forwards;
+}
+@keyframes particleFade{ to{ transform: translateY(-35px) scale(0.2); opacity:0; } }
+.gameTrackControls{
+  position:absolute; bottom:0; left:0; width:100%; height:60px;
+  background:linear-gradient(to top,#000,#1a1a1a);
+  display:flex; justify-content:center; align-items:center; gap:16px;
+  z-index:10; border-top:2px solid rgba(255,255,255,0.2);
+}
+.trackSelector{ min-width:220px; text-transform:none; letter-spacing:0; }
+
+.hidden{ display:none !important; }
+
+@media (max-width: 1100px){
+  :root{ --btn-gap: 8px; --tempo-gap: 12px; }
+  .filename{ max-width:200px; }
+}
+</style>
+</head>
+<body>
+  <div id="app" role="application" aria-label="MIDI Hero 2 Jugadores">
+    <div id="topStack">
+      <h2>MIDI Hero</h2>
+      <div id="controlsRow" aria-label="Controles globales">
+        <button id="midiBtn" class="ghButton off" aria-controls="midiInput">
+          <span class="btnLabel">Cargar MIDI</span>
+        </button>
+        <input type="file" id="midiInput" accept=".mid,.midi" hidden />
+        <span id="midiFileName" class="filename">Ningún archivo seleccionado</span>
+
+        <button id="startBtn" class="ghButton on" aria-pressed="false">
+          <span class="btnLabel">Iniciar</span>
+        </button>
+        <button id="stopBtn" class="ghButton off">
+          <span class="btnLabel">Parar</span>
+        </button>
+
+        <button id="percussionBtn" class="ghButton off" aria-pressed="false">
+          <span class="btnLabel">Percusión OFF</span>
+        </button>
+
+        <button id="twoPlayersBtn" class="ghButton playersBtn" aria-pressed="false">
+          <span class="btnLabel">2 JUGADORES</span>
+        </button>
+      </div>
+
+      <div id="tempoRow">
+        <span class="tempoText">Tempo <span id="tempoLabel">100%</span></span>
+        <input type="range" id="tempoSlider" min="50" max="150" value="100" aria-label="Tempo (50–150%)"/>
+      </div>
+    </div>
+
+    <div id="gameLayout">
+      <!-- Pane Jugador 2 (oculto inicialmente) -->
+      <div id="player2Pane" class="playerPane hidden" aria-hidden="true">
+        <div class="paneTitle"><span class="title" id="titleP2">—</span></div>
+        <div id="gameP2" class="game" role="region" aria-label="Zona de juego Jugador 2">
+          <div class="laneColorBar" id="laneColorBarP2"></div>
+          <div class="upperZone"></div>
+          <div class="hitline"></div>
+          <div class="gameTrackControls">
+            <span style="font-weight:bold;">Pista</span>
+            <select id="trackSelectorP2" class="ghButton trackSelector" aria-label="Pista MIDI Jugador 2"></select>
+            <button id="soundBtnP2" class="ghButton soundToggle on" aria-pressed="true">
+              <span class="btnLabel">Sonido ON</span>
+            </button>
+            <button id="fluteBtnP2" class="ghButton fluteToggle off" aria-pressed="false">
+              <span class="btnLabel">FLUTE OFF</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- Pane Jugador 1 -->
+      <div id="player1Pane" class="playerPane">
+        <div class="paneTitle"><span class="title" id="titleP1">—</span></div>
+        <div id="gameP1" class="game" role="region" aria-label="Zona de juego Jugador 1">
+          <div class="laneColorBar" id="laneColorBarP1"></div>
+          <div class="upperZone"></div>
+          <div class="hitline"></div>
+          <div class="gameTrackControls">
+            <span style="font-weight:bold;">Pista</span>
+            <select id="trackSelectorP1" class="ghButton trackSelector" aria-label="Pista MIDI Jugador 1"></select>
+            <button id="soundBtnP1" class="ghButton soundToggle on" aria-pressed="true">
+              <span class="btnLabel">Sonido ON</span>
+            </button>
+            <button id="fluteBtnP1" class="ghButton fluteToggle off" aria-pressed="false">
+              <span class="btnLabel">FLUTE OFF</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div> <!-- /#gameLayout -->
+  </div> <!-- /#app -->
+
+<script type="module">
+import { Midi } from "https://cdn.jsdelivr.net/npm/@tonejs/midi/+esm";
+import * as Tone from "https://cdn.jsdelivr.net/npm/tone@14.7.77/+esm";
+
+/* ===== Config ===== */
+const MIN = 60, MAX = 77; // Do4 (60) .. Fa5 (77)
+const totalLanes = 11;
+const baseTravelTime = 2;
+const HEAD_SIZE = 60;
+const PARTICLE_MAX_PER_NOTE = 4;
+
+const englishNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const spanishNames = ["Do","Do#","Re","Re#","Mi","Fa","Fa#","Sol","Sol#","La","Sib","Si"];
+const DEFAULT_COLORS = { C:"#ff0000", D:"#ff8c00", E:"#ffff00", F:"#00cc00", G:"#0066ff", A:"#4b0082", B:"#9400d3" };
+
+/* ===== Estado ===== */
+let midi = null;
+let percussionNotes = [], percussionIndex = 0;
+let isRunning = false, isPaused = false, isTwoPlayers = false;
+let songTime = 0, lastFrameTime = 0, songDuration = 0;
+let tempoMultiplier = 1, rafId = null, percussionEnabled = false;
+let baseColors = loadColors();
+
+function loadColors(){ try{ return JSON.parse(localStorage.getItem("midiHeroColors")) || { ...DEFAULT_COLORS }; }catch{ return { ...DEFAULT_COLORS }; } }
+function saveColors(){ localStorage.setItem("midiHeroColors", JSON.stringify(baseColors)); }
+
+/* ===== Helpers ===== */
+const $ = s => document.querySelector(s);
+const app = $("#app");
+const gameLayout = $("#gameLayout");
+
+function hexToRgb(hex){ const b=parseInt(hex.slice(1),16); return [(b>>16)&255,(b>>8)&255,b&255]; }
+function adjustColor(rgb,f){ return `rgb(${Math.min(255,rgb[0]*f)}, ${Math.min(255,rgb[1]*f)}, ${Math.min(255,rgb[2]*f)})`; }
+function rgbStringToArray(s){ const m=s.match(/\d+/g); return m? m.slice(0,3).map(n=>parseInt(n,10)):[255,255,255]; }
+function luminance([r,g,b]){ const a=[r,g,b].map(v=>{v/=255;return v<=.03928? v/12.92:Math.pow((v+.055)/1.055,2.4)}); return .2126*a[0]+.7152*a[1]+.0722*a[2]; }
+function bestTextColorFromRgb(s){ return luminance(rgbStringToArray(s))>0.5? "#000":"#fff"; }
+function midiToSpanishName(m){ return spanishNames[m%12]; }
+function midiToEnglishName(m){ return englishNames[m%12] + (Math.floor(m/12)-1); }
+function midiToSpanishNameWithOctave(m){
+  const name = spanishNames[m%12];
+  const octave = Math.floor(m/12)-1;
+  return name + octave;
+}
+function normalizeMidi(m){ while(m<MIN)m+=12; while(m>MAX)m-=12; return Math.min(MAX,Math.max(MIN,m)); }
+function midiToLane(m){
+  const octave = Math.floor(m/12)-1, noteIndex = m%12;
+  const baseMap = {0:0,1:0,2:1,3:1,4:2,5:3,6:3,7:4,8:4,9:5,10:6,11:6};
+  const baseLane = baseMap[noteIndex];
+  if(octave===4) return baseLane;
+  if(octave===5) return baseLane+7;
+  return baseLane;
+}
+function getTrackDisplayName(i){
+  const t = midi?.tracks?.[i];
+  if(!t) return `PISTA ${i+1}`;
+  const name = (t.name?.trim?.() && t.name.trim()) || t.instrument?.name || `Pista ${i+1}`;
+  return String(name).toUpperCase();
+}
+function getTrackInstrumentUpper(i){
+  const t = midi?.tracks?.[i];
+  if(!t) return `PISTA ${i+1}`;
+  const base = t.instrument?.name || (t.name?.trim?.() && t.name.trim()) || `Pista ${i+1}`;
+  return String(base).toUpperCase();
+}
+function recomputeSongDuration(){
+  const durs = [];
+  const i1 = viewP1.trackSel?.value;
+  const i2 = viewP2.trackSel?.value;
+  if(i1 !== "" && i1 != null) durs.push(midi.tracks[i1].duration || 0);
+  if(isTwoPlayers && i2 !== "" && i2 != null) durs.push(midi.tracks[i2].duration || 0);
+  if (percussionNotes.length > 0) {
+    const last = percussionNotes[percussionNotes.length - 1].time;
+    durs.push(last + 0.5);
+  }
+  songDuration = durs.length ? Math.max(...durs) : 0;
+}
+function uiToDb(v) { const minDb = -36, maxDb = +12; return minDb + (maxDb - minDb) * (v / 100); }
+function dbToUi(db) { const minDb = -36, maxDb = +12; const clamped = Math.max(minDb, Math.min(maxDb, db ?? 0)); return ((clamped - minDb) / (maxDb - minDb)) * 100; }
+
+/* MAYÚSCULAS conservando 'b' minúscula (p.ej., 'Sib' -> 'SIb') */
+function upperPreservingFlat(s){
+  return s.split('').map(ch => ch === 'b' ? 'b' : ch.toUpperCase()).join('');
+}
+
+/* Etiqueta nota (sin “4”; en 5ª añade prima antes del sostenido) */
+function formatNoteLabel(m){
+  const nameFmt = upperPreservingFlat(midiToSpanishName(m));
+  const octave = Math.floor(m/12)-1;
+  if (octave === 4) return nameFmt;
+  if (octave === 5){
+    if (nameFmt.endsWith("#")) return nameFmt.slice(0,-1) + "’#";
+    return nameFmt + "’";
+  }
+  return nameFmt;
+}
+
+/* ======== MASTER BUS con limitador ======== */
+const masterLimiter = new Tone.Limiter(-1).toDestination();
+
+/* ===== GameView ===== */
+class GameView {
+  constructor({ paneId, gameId, barId, trackSelId, soundBtnId, fluteBtnId, sidePlacement, titleEl }){
+    this.pane = document.getElementById(paneId);
+    this.game = document.getElementById(gameId);
+    this.laneBar = document.getElementById(barId);
+    this.trackSel = document.getElementById(trackSelId);
+    this.soundBtn = document.getElementById(soundBtnId);
+    this.fluteBtn = document.getElementById(fluteBtnId);
+    this.sidePlacement = sidePlacement;
+    this.titleEl = titleEl;
+
+    this.trackVol = new Tone.Volume(0).connect(masterLimiter);
+    this.piano = new Tone.PolySynth(Tone.Synth).connect(this.trackVol);
+
+    this.fluteOn = false;
+    const fluteLP = new Tone.Filter(2400, "lowpass").connect(this.trackVol);
+    this.flute = new Tone.Synth({
+      oscillator: { type: "sine" },
+      envelope: { attack: 0.02, decay: 0.15, sustain: 0.6, release: 0.35 }
+    }).connect(fluteLP);
+
+    this.soundOn = true;
+    this.notes = [];
+       this.activeNotes = [];
+    this.noteSpawnIndex = 0;
+    this.laneWidth = this.game.clientWidth / totalLanes;
+
+    this.fluteZoneEl = null;
+    this.currentFluteMidi = null;
+    this.currentFluteHoldUntil = -1;
+
+    this.buildLaneColorBar();
+
+    this.soundBtn.onclick = ()=> this.toggleSound();
+    if (this.fluteBtn) this.fluteBtn.onclick = ()=> this.toggleFlute();
+    this.trackSel.onchange = ()=> { this.reprepareKeepingTime(); this.updateInstrumentLabel(); };
+
+    this.drawLanes();
+    this.updateInstrumentLabel();
+  }
+
+  /* ===== Zona lateral (crear/eliminar/mostrar) ===== */
+  ensureFluteSideZone(){
+    if (this.fluteZoneEl) return;
+    const zone = document.createElement("div");
+    zone.className = "fluteSideZone";
+
+    const layout = this.pane.parentElement;
+    if (this.sidePlacement === "right"){
+      layout.insertBefore(zone, this.pane.nextSibling);
+    } else {
+      layout.insertBefore(zone, this.pane);
+    }
+    this.fluteZoneEl = zone;
+
+    // Construir: 8 círculos con texto entre 1.º y 2.º
+    this.buildFluteZoneContent(this.fluteZoneEl, "--");
+    resizeApp();
+  }
+  removeFluteSideZone(){
+    if (!this.fluteZoneEl) return;
+    try { this.fluteZoneEl.remove(); } catch {}
+    this.fluteZoneEl = null;
+    this.currentFluteMidi = null;
+    this.currentFluteHoldUntil = -1;
+    resizeApp();
+  }
+  setFluteSideZoneVisible(visible){
+    const paneVisible = !this.pane.classList.contains("hidden");
+    if (visible && paneVisible) this.ensureFluteSideZone(); else this.removeFluteSideZone();
+  }
+
+  /* Crea 8 círculos (con tamaños por clase) y el texto entre 1.º y 2.º */
+  buildFluteZoneContent(zoneEl, labelText = "--"){
+    if (!zoneEl) return;
+    zoneEl.innerHTML = "";
+
+    // dot1
+    const d1 = document.createElement("div"); d1.className = "fluteDot dot1"; zoneEl.appendChild(d1);
+    // label (entre dot1 y dot2)
+    const lbl = document.createElement("div"); lbl.className = "fluteLabel"; lbl.textContent = labelText; zoneEl.appendChild(lbl);
+    // dot2..dot8
+    for (let i=2;i<=8;i++){
+      const d = document.createElement("div");
+      d.className = `fluteDot dot${i}`;
+      zoneEl.appendChild(d);
+    }
+    // Estado inicial (gris)
+    this.resetFluteUI();
+  }
+
+  /* Utilidades UI (flute) */
+  getFluteLabelEl(){
+    if (!this.fluteZoneEl) return null;
+    return this.fluteZoneEl.querySelector(".fluteLabel");
+  }
+  getFluteCircles(){
+    if (!this.fluteZoneEl) return [];
+    return Array.from(this.fluteZoneEl.querySelectorAll(".fluteDot")); // 8 elementos
+  }
+  resetFluteUI(){
+    const label = this.getFluteLabelEl();
+    if (label) label.textContent = "--";
+    const circles = this.getFluteCircles();
+    circles.forEach(dot => {
+      dot.style.background = "radial-gradient(circle at 30% 30%, #ddd, #999)";
+      dot.style.boxShadow = "0 0 6px rgba(0,0,0,0.35), inset 0 0 6px rgba(255,255,255,0.35)";
+      dot.style.backgroundClip = "border-box";
+    });
+  }
+  paintFlute(circles, fillSet, halfIndex, color){
+    circles.forEach((dot, idx)=>{
+      const i = idx+1; // 1..8
+      if (fillSet.has(i)){
+        dot.style.background = color;
+        dot.style.boxShadow = "0 0 10px rgba(255,255,255,0.25), 0 0 18px rgba(0,0,0,0.25) inset";
+      } else if (halfIndex && i === halfIndex){
+        // mitad coloreada (izquierda) y derecha gris
+        dot.style.background = `linear-gradient(to right, ${color} 50%, #777 50%)`;
+        dot.style.boxShadow = "0 0 10px rgba(255,255,255,0.20), 0 0 18px rgba(0,0,0,0.25) inset";
+      } else {
+        dot.style.background = "radial-gradient(circle at 30% 30%, #ddd, #999)";
+        dot.style.boxShadow = "0 0 6px rgba(0,0,0,0.35), inset 0 0 6px rgba(255,255,255,0.35)";
+      }
+    });
+  }
+  setFluteDisplayForMidi(midiNote, color){
+    if (!this.fluteZoneEl) return;
+    const circles = this.getFluteCircles();
+    if (circles.length !== 8) return;
+
+    // Etiqueta con formato pedido
+    const label = this.getFluteLabelEl();
+    if (label) label.textContent = formatNoteLabel(midiNote);
+
+    // Pintado según nueva digitación (8 agujeros)
+    const { fill, half } = computeFingering(midiNote);
+    this.paintFlute(circles, new Set(fill), half, color);
+  }
+  clearFluteDisplayIfExpired(){
+    if (!this.fluteZoneEl) return;
+    if (this.currentFluteHoldUntil < 0) return;
+    if (songTime > this.currentFluteHoldUntil){
+      this.currentFluteHoldUntil = -1;
+      this.currentFluteMidi = null;
+      this.resetFluteUI();
+    }
+  }
+
+  /* ===== UI y notas ===== */
+  updateInstrumentLabel(){
+    const idx = this.trackSel.value;
+    const inst = (idx === "" || idx == null || !midi) ? "—" : getTrackInstrumentUpper(parseInt(idx,10));
+    this.titleEl.textContent = inst;
+  }
+  buildLaneColorBar(){
+    this.laneBar.innerHTML = "";
+    const laneNotes = ["C","D","E","F","G","A","B","C","D","E","F"];
+    laneNotes.forEach((note, index)=>{
+      const box = document.createElement("div");
+      box.className = "laneColorBox";
+      box.style.background = baseColors[note];
+      if(index < 7){
+        box.textContent = note;
+        const picker = document.createElement("input");
+        picker.type = "color";
+        picker.value = baseColors[note];
+        picker.oninput = (e)=>{
+          if(isRunning && !isPaused) return;
+          baseColors[note] = e.target.value;
+          saveColors();
+          viewP1.buildLaneColorBar();
+          viewP2.buildLaneColorBar();
+        };
+        box.appendChild(picker);
+      } else if(index === 10){
+        box.classList.add("resetBox");
+        box.textContent = "RESET";
+        box.onclick = ()=>{
+          if(isRunning && !isPaused) return;
+          baseColors = { ...DEFAULT_COLORS };
+          saveColors();
+          viewP1.buildLaneColorBar();
+          viewP2.buildLaneColorBar();
+        };
+      } else {
+        box.textContent = note;
+      }
+      this.laneBar.appendChild(box);
+    });
+  }
+  drawLanes(){
+    this.game.querySelectorAll(".laneLine").forEach(l => l.remove());
+    this.laneWidth = this.game.clientWidth / totalLanes;
+    for(let i=0;i<=totalLanes;i++){
+      const line = document.createElement("div");
+      line.className = "laneLine";
+      line.style.position = "absolute";
+      line.style.top = "0";
+      line.style.bottom = "0";
+      line.style.width = "1px";
+      line.style.background = "rgba(255,255,255,0.1)";
+      line.style.left = (i * this.laneWidth) + "px";
+      this.game.appendChild(line);
+    }
+  }
+  toggleSound(){
+    this.soundOn = !this.soundOn;
+    setToggle(this.soundBtn, this.soundOn, "Sonido ON", "Sonido OFF");
+    if(!this.soundOn) this.piano.releaseAll();
+  }
+  toggleFlute(){
+    this.fluteOn = !this.fluteOn;
+    setToggle(this.fluteBtn, this.fluteOn, "FLUTE ON", "FLUTE OFF");
+    this.setFluteSideZoneVisible(this.fluteOn);
+    if (this.fluteOn) this.resetFluteUI();
+  }
+
+  /* ===== Preparación y loop ===== */
+  clearActiveDom(){
+    for(let i=0;i<this.activeNotes.length;i++){
+      const n = this.activeNotes[i];
+      if(n.element){ n.element.remove(); n.element = null; }
+    }
+    this.activeNotes.length = 0;
+  }
+  reset(){
+    this.clearActiveDom();
+    this.notes.length = 0;
+    this.noteSpawnIndex = 0;
+    this.currentFluteMidi = null;
+    this.currentFluteHoldUntil = -1;
+    if (this.fluteZoneEl) this.resetFluteUI();
+  }
+  prepare(trackIndex, startFromTime = 0){
+    this.reset();
+    if(!midi) return;
+    if(trackIndex === "" || trackIndex == null) return;
+    const track = midi.tracks[trackIndex];
+
+    const hitlineY = 100;
+    const travelDistance = this.game.clientHeight - hitlineY;
+    const pxPerSec = travelDistance / baseTravelTime;
+
+    for(const n of track.notes){
+      const m = normalizeMidi(n.midi);
+      const lane = midiToLane(m);
+      const MIN_VIS_DUR = 0.05;
+      const durationAudio = Math.max(0, n.duration);
+      const durationVis = Math.max(MIN_VIS_DUR, durationAudio);
+      const durationHeight = durationVis * pxPerSec;
+      this.notes.push({
+        midi: m, lane,
+        time: n.time,
+        durationAudio,
+        durationVis,
+        end: n.time + durationAudio,
+        totalHeight: HEAD_SIZE + durationHeight,
+        element: null, played: false, cosmicActive: false, particleCount: 0
+      });
+    }
+    const travelTime = baseTravelTime / tempoMultiplier;
+    this.noteSpawnIndex = this.notes.findIndex(nn => startFromTime < nn.time - travelTime);
+    if(this.noteSpawnIndex === -1) this.noteSpawnIndex = this.notes.length;
+
+    this.updateInstrumentLabel();
+    recomputeSongDuration();
+  }
+  reprepareKeepingTime(){
+    const trackIndex = this.trackSel.value;
+    this.prepare(trackIndex, songTime);
+  }
+  updateFrame(){
+    if(!isRunning || isPaused) return;
+
+    // Restablecer UI cuando la nota visible ya finalizó
+    this.clearFluteDisplayIfExpired();
+    if (this.notes.length === 0) return;
+
+    const hitlineY = 100;
+    const gameHeight = this.game.clientHeight;
+    const laneW = this.laneWidth;
+
+    // Spawn
+    const travelTime = baseTravelTime / tempoMultiplier;
+    while(
+      this.noteSpawnIndex < this.notes.length &&
+      songTime >= this.notes[this.noteSpawnIndex].time - travelTime
+    ){
+      const note = this.notes[this.noteSpawnIndex];
+      const div = document.createElement("div");
+      div.className = "note";
+      div.style.height = note.totalHeight + "px";
+      div.style.left = (note.lane * laneW + laneW/2 - 30) + "px";
+      div.style.bottom = gameHeight + "px";
+      const color = this.getNoteColor(note.midi);
+      div.style.background = color;
+
+      const head = document.createElement("div");
+      head.className = "noteHead";
+      head.textContent = midiToSpanishName(note.midi);
+      head.style.background = color;
+      head.style.color = bestTextColorFromRgb(color);
+      div.appendChild(head);
+
+      this.game.appendChild(div);
+      note.element = div;
+      note.particleCount = 0;
+      this.activeNotes.push(note);
+      this.noteSpawnIndex++;
+    }
+
+    // Move & shrink
+    for(let i=this.activeNotes.length-1;i>=0;i--){
+      const note = this.activeNotes[i];
+      const appearTime = note.time - (baseTravelTime / tempoMultiplier);
+      const progress = (songTime - appearTime) / Math.max(0.001, (baseTravelTime / tempoMultiplier));
+      const y = progress * (gameHeight - hitlineY);
+      const el = note.element;
+      const bottom = gameHeight - y;
+
+      if(bottom > hitlineY){
+        el.style.bottom = bottom + "px";
+      } else {
+        el.style.bottom = hitlineY + "px";
+
+        // Nota en la hitline (inicio)
+        if(!note.played){
+          if(this.soundOn){
+            const pitch = midiToEnglishName(note.midi);
+            const dur = Math.max(0.03, note.durationAudio) / tempoMultiplier;
+            this.piano.triggerAttackRelease(pitch, dur);
+            if (this.fluteOn) this.flute.triggerAttackRelease(pitch, Math.max(dur, 0.25));
+          }
+
+          // Pintado de la flauta (ON y visible)
+          if (this.fluteOn && this.fluteZoneEl){
+            const color = this.getNoteColor(note.midi);
+            this.setFluteDisplayForMidi(note.midi, color);
+            this.currentFluteMidi = note.midi;
+            this.currentFluteHoldUntil = note.end; // mantener colores mientras dure la nota
+          }
+
+          note.played = true;
+          el.classList.add("cosmicEffect");
+          note.cosmicActive = true;
+        }
+
+        // Partículas
+        if(note.cosmicActive && note.particleCount < PARTICLE_MAX_PER_NOTE && Math.random()<0.15){
+          const p = document.createElement("div");
+          p.className = "particle";
+          const colors = ["#00ffff","#ff00ff","#ffffff","#66ccff","#cc66ff"];
+          p.style.background = colors[Math.floor(Math.random()*colors.length)];
+          p.style.left = (Math.random()*60) + "px";
+          p.style.bottom = "0px";
+          el.appendChild(p);
+          note.particleCount++;
+          setTimeout(()=>p.remove(), 800);
+        }
+
+        const remainingRatio = Math.max(0, (note.end - songTime) / Math.max(0.001, note.durationVis));
+        if(remainingRatio > 0){
+          el.style.height = (note.totalHeight * remainingRatio) + "px";
+        } else {
+          el.classList.remove("cosmicEffect");
+          note.cosmicActive = false;
+          el.remove();
+          this.activeNotes.splice(i,1);
+        }
+
+        if (songTime - note.end > 3) {
+          el.classList.remove("cosmicEffect");
+          note.cosmicActive = false;
+          el.remove();
+          this.activeNotes.splice(i,1);
+        }
+      }
+    }
+  }
+  getNoteColor(m){
+    const idx = m % 12;
+    const baseName = englishNames[idx]; // C, C#, D, ...
+    const base = hexToRgb(baseColors[baseName[0]]); // C/D/E/F/G/A/B → color base
+    return baseName.includes("#") ? adjustColor(base, 0.6) : adjustColor(base, 1.15);
+  }
+}
+
+/* ===== Digitación 8 agujeros (C4..F5) ===== */
+function computeFingering(midiNote){
+  const name = englishNames[midiNote%12];
+  const octave = Math.floor(midiNote/12)-1;
+  const key = name + octave;
+
+  let fill = [];
+  let half = null;
+
+  switch (key){
+    case "C4":  fill = [1,2,3,4,5,6,7,8]; break;
+    case "C#4": fill = [1,2,3,4,5,6,7]; half = 8; break;
+    case "D4":  fill = [1,2,3,4,5,6,7]; break;
+    case "D#4": fill = [1,2,3,4,5,6];    half = 7; break;
+    case "E4":  fill = [1,2,3,4,5,6]; break;
+    case "F4":  fill = [1,2,3,4,5]; break;
+    case "F#4": fill = [1,2,3,4,6,7]; break;
+    case "G4":  fill = [1,2,3,4]; break;
+    case "G#4": fill = [1,2,3,5,6]; break;
+    case "A4":  fill = [1,2,3]; break;
+    case "A#4":
+    case "Bb4": fill = [1,2,4,5]; break;
+    case "B4":  fill = [1,2]; break;
+
+    case "C5":  fill = [1,3]; break;
+    case "C#5": fill = [2,3]; break;
+    case "D5":  fill = [3]; break;
+    case "D#5": fill = [2,3,4,5,6]; half = 7; break;
+    case "E5":  fill = [2,3,4,5,6]; break;
+    case "F5":  fill = [2,3,5]; break;
+
+    default: fill = []; half = null;
+  }
+
+  return { fill: Array.from(new Set(fill)), half };
+}
+
+/* ===== Instancias ===== */
+const viewP1 = new GameView({
+  paneId: "player1Pane", gameId: "gameP1", barId: "laneColorBarP1",
+  trackSelId: "trackSelectorP1", soundBtnId: "soundBtnP1", fluteBtnId: "fluteBtnP1",
+  sidePlacement: "right", titleEl: $("#titleP1")
+});
+const viewP2 = new GameView({
+  paneId: "player2Pane", gameId: "gameP2", barId: "laneColorBarP2",
+  trackSelId: "trackSelectorP2", soundBtnId: "soundBtnP2", fluteBtnId: "fluteBtnP2",
+  sidePlacement: "left", titleEl: $("#titleP2")
+});
+
+/* ===== Controles DOM ===== */
+const midiInput = $("#midiInput");
+const midiBtn = $("#midiBtn");
+const midiFileName = $("#midiFileName");
+const startBtn = $("#startBtn");
+const stopBtn = $("#stopBtn");
+const percussionBtn = $("#percussionBtn");
+const tempoSlider = $("#tempoSlider");
+const tempoLabel = $("#tempoLabel");
+const twoPlayersBtn = $("#twoPlayersBtn");
+const player2Pane = $("#player2Pane");
+
+/* ===== MIDI ===== */
+midiBtn.onclick = ()=> midiInput.click();
+midiInput.onchange = async (e)=>{
+  resetAll();
+  const file = e.target.files[0];
+  if(!file) return;
+  midiFileName.textContent = file.name;
+  setToggle(midiBtn, true, "MIDI Cargado", "Cargar MIDI");
+  const buffer = await file.arrayBuffer();
+  let parsed = null;
+  try{ parsed = new Midi(buffer); }catch(err){ console.error("Error leyendo MIDI:", err); return; }
+  midi = parsed;
+
+  fillTrackSelectors();
+  if(viewP1.trackSel.value !== "") viewP1.prepare(viewP1.trackSel.value, songTime);
+  if(isTwoPlayers && viewP2.trackSel.value !== "") viewP2.prepare(viewP2.trackSel.value, songTime);
+  preparePercussion();
+  viewP1.updateInstrumentLabel();
+  viewP2.updateInstrumentLabel();
+  recomputeSongDuration();
+};
+function fillTrackSelectors(){
+  const fill = (select)=>{
+    select.innerHTML = "";
+    midi.tracks.forEach((track, i)=>{
+      if(track.channel === 9 || track.instrument?.percussion){ return; }
+      if(track.notes?.length > 0){
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = getTrackDisplayName(i);
+        select.appendChild(opt);
+      }
+    });
+  };
+  fill(viewP1.trackSel);
+  fill(viewP2.trackSel);
+}
+
+/* ===== Percusión ===== */
+function preparePercussion(){
+  percussionNotes = [];
+  percussionIndex = 0;
+  if (!midi?.tracks?.length) return;
+  midi.tracks.forEach((track)=>{
+    const isDrums = track.channel === 9 || track.instrument?.percussion;
+    if (!isDrums) return;
+    for(const n of track.notes){
+      percussionNotes.push({ time: n.time, midi: n.midi, velocity: n.velocity ?? 0.8 });
+    }
+  });
+  percussionNotes.sort((a,b)=> a.time - b.time);
+}
+
+/* ===== Loop principal ===== */
+function loop(ts){
+  if(isPaused || !isRunning) return;
+  try {
+    const delta = (ts - lastFrameTime) / 1000;
+    lastFrameTime = ts;
+    songTime += delta * tempoMultiplier;
+
+    if(songTime >= songDuration){ resetAll(); return; }
+
+    viewP1.updateFrame();
+    if(isTwoPlayers) viewP2.updateFrame();
+
+    if (percussionEnabled) {
+      while (percussionIndex < percussionNotes.length &&
+             percussionNotes[percussionIndex].time <= songTime) {
+        const p = percussionNotes[percussionIndex];
+        playPerc(p.midi, p.velocity ?? 0.9);
+        percussionIndex++;
+      }
+    }
+  } finally {
+    if(isRunning && !isPaused){
+      rafId = requestAnimationFrame(loop);
+    }
+  }
+}
+
+/* ===== Percusión (cadena e instrumentos) ===== */
+const percVol = new Tone.Volume(-5);
+const percComp = new Tone.Compressor({ threshold: -18, ratio: 3, attack: 0.01, release: 0.15 });
+const percEQ = new Tone.EQ3({ low: 1, mid: 0.5, high: 0.5 });
+const percRev = new Tone.Reverb({ decay: 0.9, preDelay: 0.005, wet: 0.12 });
+percEQ.connect(percComp); percComp.connect(percRev); percRev.connect(percVol); percVol.connect(masterLimiter);
+
+const kick = new Tone.MembraneSynth({ pitchDecay: 0.03, octaves: 10, oscillator: { type: "sine" },
+  envelope: { attack: 0.001, decay: 0.42, sustain: 0 } }).connect(percEQ);
+const snareNoise = new Tone.NoiseSynth({ noise: { type: "white" },
+  envelope: { attack: 0.001, decay: 0.18, sustain: 0 } }).connect(percEQ);
+const snareTone = new Tone.MembraneSynth({ pitchDecay: 0.005, octaves: 2,
+  envelope: { attack: 0.001, decay: 0.12, sustain: 0 } }).connect(percEQ);
+const hatHP = new Tone.Filter(9000, "highpass").connect(percEQ);
+const hat = new Tone.NoiseSynth({ noise: { type: "white" },
+  envelope: { attack: 0.001, decay: 0.05, sustain: 0 } }).connect(hatHP);
+const tomLow = new Tone.MembraneSynth({ envelope: { attack: 0.001, decay: 0.30, sustain: 0 } }).connect(percEQ);
+const tomMid = new Tone.MembraneSynth({ envelope: { attack: 0.001, decay: 0.26, sustain: 0 } }).connect(percEQ);
+const tomHigh = new Tone.MembraneSynth({ envelope: { attack: 0.001, decay: 0.22, sustain: 0 } }).connect(percEQ);
+function metal(decay=1.2, freq=300){ return new Tone.MetalSynth({
+  frequency: freq, envelope: { attack: 0.001, decay, release: 0.2 },
+  harmonicity: 5.1, modulationIndex: 32, resonance: 7000, octaves: 1.5 }).connect(percEQ); }
+const crash=metal(1.4,320), ride=metal(1.0,260), splash=metal(0.8,340), china=metal(1.6,230);
+const clapBP = new Tone.Filter(1800, "bandpass").connect(percEQ);
+const clap = new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.001, decay: 0.12, sustain: 0 } }).connect(clapBP);
+function playPerc(m, vel = 0.9) {
+  const db = Tone.gainToDb(vel);
+  switch (m) {
+    case 35: case 36: kick.volume.value = db; kick.triggerAttackRelease("C1", "8n"); break;
+    case 37: snareTone.volume.value = db - 2; snareTone.triggerAttackRelease("D2", "32n"); break;
+    case 38: case 40:
+      snareNoise.volume.value = db; snareTone.volume.value = db - 4;
+      snareNoise.triggerAttackRelease("16n"); snareTone.triggerAttackRelease("G2","32n"); break;
+    case 39: clap.volume.value = db; clap.triggerAttackRelease("16n"); break;
+    case 42: hat.envelope.decay = 0.04 + 0.03 * vel; hat.volume.value = db - 2; hat.triggerAttackRelease("16n"); break;
+    case 44: hat.envelope.decay = 0.03 + 0.02 * vel; hat.volume.value = db - 4; hat.triggerAttackRelease("16n"); break;
+    case 46: hat.envelope.decay = 0.18 + 0.25 * vel; hat.volume.value = db - 2; hat.triggerAttackRelease("8n"); break;
+    default:
+      hat.envelope.decay = 0.05; hat.volume.value = db - 6; hat.triggerAttackRelease("32n");
+  }
+}
+
+/* ===== Controles ===== */
+startBtn.onclick = async ()=>{
+  if(!midi) return;
+  await Tone.start();
+
+  if(!isRunning){
+    isRunning = true; isPaused = false;
+    songTime = 0; lastFrameTime = performance.now();
+    if(viewP1.trackSel.value !== "") viewP1.prepare(viewP1.trackSel.value, 0);
+    if(isTwoPlayers && viewP2.trackSel.value !== "") viewP2.prepare(viewP2.trackSel.value, 0);
+    setToggle(startBtn, true, "Pausar", "Iniciar");
+    recomputeSongDuration();
+    rafId = requestAnimationFrame(loop);
+    return;
+  }
+
+  isPaused = !isPaused;
+  if(isPaused){
+    setToggle(startBtn, false, "Pausar", "Reanudar");
+  } else {
+    setToggle(startBtn, true, "Pausar", "Reanudar");
+    lastFrameTime = performance.now();
+    rafId = requestAnimationFrame(loop);
+  }
+};
+stopBtn.onclick = ()=> resetAll();
+tempoSlider.oninput = (e)=>{
+  tempoMultiplier = e.target.value / 100;
+  tempoLabel.textContent = Math.round(tempoMultiplier*100) + "%";
+};
+percussionBtn.onclick = ()=>{
+  percussionEnabled = !percussionEnabled;
+  setToggle(percussionBtn, percussionEnabled, "Percusión ON", "Percusión OFF");
+};
+twoPlayersBtn.onclick = ()=>{
+  isTwoPlayers = !isTwoPlayers;
+  setToggle(twoPlayersBtn, isTwoPlayers, "1 JUGADOR", "2 JUGADORES");
+  player2Pane.classList.toggle("hidden", !isTwoPlayers);
+  player2Pane.setAttribute("aria-hidden", String(!isTwoPlayers));
+  viewP2.setFluteSideZoneVisible(isTwoPlayers && viewP2.fluteOn);
+  resizeApp();
+  viewP1.drawLanes();
+  if(isTwoPlayers){
+    viewP2.drawLanes();
+    if(isRunning && viewP2.trackSel.value !== "") viewP2.prepare(viewP2.trackSel.value, songTime);
+  }else{
+    viewP2.reset();
+  }
+  recomputeSongDuration();
+};
+function resetAll(){
+  if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
+  viewP1.reset();
+  viewP2.reset();
+  songTime = 0; lastFrameTime = 0; songDuration = 0;
+  percussionNotes = []; percussionIndex = 0;
+  isRunning = false; isPaused = false;
+  setToggle(startBtn, false, "Pausar", "Iniciar");
+  setToggle(twoPlayersBtn, false, "2 JUGADORES", "2 JUGADORES");
+}
+
+/* setToggle */
+function setToggle(btn, isOn, onText, offText){
+  let label = btn.querySelector(".btnLabel");
+  if(!label){
+    label = document.createElement("span");
+    label.className = "btnLabel";
+    btn.appendChild(label);
+  }
+  label.textContent = isOn ? onText : offText;
+  btn.classList.toggle("on", isOn);
+  btn.classList.toggle("off", !isOn);
+  btn.setAttribute("aria-pressed", String(isOn));
+  const f = btn.querySelector(".btnFaderContainer");
+  if (f) f.style.display = isOn ? "flex" : "none";
+}
+
+/* Atajos */
+window.addEventListener("keydown", (ev)=>{
+  if(ev.target && ["INPUT","TEXTAREA","SELECT"].includes(ev.target.tagName)) return;
+  if(ev.code === "Space"){ ev.preventDefault(); startBtn.click();
+  } else if(ev.key === "ArrowLeft"){
+    const v = Math.max(50, parseInt(tempoSlider.value,10) - 5);
+    tempoSlider.value = v; tempoSlider.dispatchEvent(new Event("input"));
+  } else if(ev.key === "ArrowRight"){
+    const v = Math.min(150, parseInt(tempoSlider.value,10) + 5);
+    tempoSlider.value = v; tempoSlider.dispatchEvent(new Event("input"));
+  } else if(ev.key === "0"){
+    tempoSlider.value = 100; tempoSlider.dispatchEvent(new Event("input"));
+  } else if(ev.key.toLowerCase?.() === "p"){
+    percussionBtn.click();
+  }
+});
+
+/* Layout / Escala */
+function getCssPx(varName){
+  const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  return parseInt(v.replace("px",""), 10);
+}
+function computeContentWidth(){
+  const gap = getCssPx("--gap");
+  const items = Array.from(gameLayout.children).filter(el => !el.classList.contains("hidden"));
+  let widthSum = 0, count = 0;
+  for (const el of items){
+    if (el.classList.contains("playerPane")){
+      widthSum += getCssPx("--game-w");
+      count++;
+    } else if (el.classList.contains("fluteSideZone")){
+      widthSum += 60;
+      count++;
+    }
+  }
+  return widthSum + Math.max(0, count - 1) * gap;
+}
+function resizeApp(){
+  const contentW = computeContentWidth();
+  document.documentElement.style.setProperty("--content-w", contentW + "px");
+  const w = contentW + (getCssPx("--pad-x") * 2);
+  const h = 900;
+  const scale = Math.min(window.innerWidth / w, window.innerHeight / h);
+  app.style.transform = `scale(${scale})`;
+  app.style.left = ((window.innerWidth - w*scale)/2) + "px";
+  app.style.top = ((window.innerHeight - h*scale)/2) + "px";
+  app.style.width = w + "px";
+}
+
+/* Faders */
+function attachFaderToButton(btn, { value=75, step=1, ariaLabel, onChange }){
+  if (!btn) return null;
+  let wrap = btn.querySelector(".btnFaderContainer");
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.className = "btnFaderContainer";
+    const slider = document.createElement("input");
+    slider.type = "range";
+    slider.className = "btnFader";
+    slider.min = "0";
+    slider.max = "100";
+    slider.step = String(step);
+    slider.value = String(value);
+    if (ariaLabel) slider.setAttribute("aria-label", ariaLabel);
+    ["pointerdown","mousedown","click","touchstart","keydown"].forEach(ev =>
+      slider.addEventListener(ev, e => e.stopPropagation(), { passive:true })
+    );
+    slider.addEventListener("input", e => { const v = parseFloat(e.target.value); onChange?.(v); });
+    wrap.appendChild(slider);
+    btn.appendChild(wrap);
+    return slider;
+  } else {
+    return wrap.querySelector(".btnFader");
+  }
+}
+
+/* Boot */
+window.addEventListener("load", ()=>{
+  setToggle($("#soundBtnP1"), true, "Sonido ON", "Sonido OFF");
+  setToggle($("#soundBtnP2"), true, "Sonido ON", "Sonido OFF");
+  setToggle(percussionBtn, false, "Percusión ON", "Percusión OFF");
+  setToggle(twoPlayersBtn, false, "2 JUGADORES", "2 JUGADORES");
+  setToggle($("#fluteBtnP1"), false, "FLUTE ON", "FLUTE OFF");
+  setToggle($("#fluteBtnP2"), false, "FLUTE ON", "FLUTE OFF");
+
+  resizeApp();
+
+  const percInitUi = dbToUi(percVol.volume.value ?? 0);
+  attachFaderToButton(percussionBtn, {
+    value: Math.round(percInitUi),
+    ariaLabel: "Volumen percusión (−36..+12 dB)",
+    onChange: v => { percVol.volume.value = uiToDb(v); }
+  });
+  attachFaderToButton($("#soundBtnP1"), {
+    value: 75,
+    ariaLabel: "Volumen pista jugador 1 (−36..+12 dB)",
+    onChange: v => { viewP1.trackVol.volume.value = uiToDb(v); }
+  });
+  attachFaderToButton($("#soundBtnP2"), {
+    value: 75,
+    ariaLabel: "Volumen pista jugador 2 (−36..+12 dB)",
+    onChange: v => { viewP2.trackVol.volume.value = uiToDb(v); }
+  });
+});
+window.addEventListener("resize", resizeApp);
+</script>
+</body>
+</html>
