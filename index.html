@@ -1054,8 +1054,12 @@ function playPerc(m, vel = 0.9) {
 }
 
 /* ===== Controles ===== */
-startBtn.onclick = async () => {
-    await Tone.start();
+
+  // Desbloqueo seguro para iOS sin botón extra
+  if (Tone.context.state !== "running") {
+      Tone.start();
+      console.log("Audio desbloqueado en iOS");
+    }
 
   if(!isRunning){
     isRunning = true; isPaused = false;
